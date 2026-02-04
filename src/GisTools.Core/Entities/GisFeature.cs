@@ -9,11 +9,11 @@ namespace GisTools.Core.Entities
 {
     public class GisFeature
     {
-        public GeoPoint Geometry { get; set; }
+        public IGeometry Geometry { get; set; }
 
         public Dictionary<string, object> Attributes { get; set; }
 
-        public GisFeature(GeoPoint geometry)
+        public GisFeature(IGeometry geometry)
         {
             Geometry = geometry;
             Attributes = new Dictionary<string, object>();

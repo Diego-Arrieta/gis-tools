@@ -6,11 +6,12 @@ using System.Threading.Tasks;
 
 namespace GisTools.Core.Geometry
 {
-    public struct GeoPoint
+    public struct GeoPoint : IGeometry
     {
         public double X { get; }
         public double Y { get; }
         public double Z { get; }
+        public string GeometryType => "Point";
 
         public GeoPoint(double x, double y, double z = 0)
         {

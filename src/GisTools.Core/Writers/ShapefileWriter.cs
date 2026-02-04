@@ -5,15 +5,25 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using GisTools.Core.Entities;
-using GisTools.Core.Managers;
 using GisTools.Core.Geometry;
+using GisTools.Core.Helpers;
+using GisTools.Core.Managers;
 using OSGeo.OGR;
 
 namespace GisTools.Core.Writers
 {
     public static class ShapefileWriter
     {
-        public static string WritePoints(string outputPath, List<GisFeature> features)
+        public static string WritePoints(string path, List<GisFeature> features)
+            => WriteFeaturesCore(path, features, wkbGeometryType.wkbPoint);
+
+        public static string WriteLines(string path, List<GisFeature> features)
+            => WriteFeaturesCore(path, features, wkbGeometryType.wkbLineString);
+
+        public static string WritePolygons(string path, List<GisFeature> features)
+            => WriteFeaturesCore(path, features, wkbGeometryType.wkbPolygon);
+
+        public static string WriteFeaturesCore(string outputPath, List<GisFeature> features, wkbGeometryType gdalType)
         {
             try
             {
@@ -29,9 +39,9 @@ namespace GisTools.Core.Writers
 
                 using (DataSource ds = driver.CreateDataSource(outputPath, null))
                 {
-                    if (ds == null) return "Error: Couldn't create a file.";
+                    if (ds == null) return "Error: Create file failed.";
 
-                    using (Layer layer = ds.CreateLayer("Points", null, wkbGeometryType.wkbPoint, null))
+                    using (Layer layer = ds.CreateLayer("Layer1", null, gdalType, null))
                     {
                         if (features.Count > 0)
                         {
@@ -40,31 +50,34 @@ namespace GisTools.Core.Writers
                                 string fieldName = key.Length > 10 ? key.Substring(0, 10) : key;
                                 using (FieldDefn field = new FieldDefn(fieldName, FieldType.OFTString))
                                 {
-                                    field.SetWidth(100);
+                                    field.SetWidth(254);
                                     layer.CreateField(field, 1);
                                 }
                             }
                         }
 
-                        FeatureDefn layerDefn = layer.GetLayerDefn();
+                        FeatureDefn layerDefinition = layer.GetLayerDefn();
+
                         foreach (var item in features)
                         {
-                            using (Feature feat = new Feature(layerDefn))
+                            using (Feature feat = new Feature(layerDefinition))
                             {
-                                // Geometry
-                                using (OSGeo.OGR.Geometry geom = new OSGeo.OGR.Geometry(wkbGeometryType.wkbPoint))
+                                OSGeo.OGR.Geometry gdalGeom = GdalGeometryConverter.ToGdalGeometry(item.Geometry);
+
+                                if (gdalGeom != null)
                                 {
-                                    geom.AddPoint(item.Geometry.X, item.Geometry.Y, item.Geometry.Z);
-                                    feat.SetGeometry(geom);
+                                    feat.SetGeometry(gdalGeom);
+                                    gdalGeom.Dispose();
                                 }
 
-                                // Attibutes
                                 foreach (var attr in item.Attributes)
                                 {
                                     string fieldName = attr.Key.Length > 10 ? attr.Key.Substring(0, 10) : attr.Key;
-                                    int idx = layerDefn.GetFieldIndex(fieldName);
-                                    if (idx != -1) feat.SetField(idx, attr.Value?.ToString());
+                                    int idx = layerDefinition.GetFieldIndex(fieldName);
+                                    if (idx != -1 && attr.Value != null)
+                                        feat.SetField(idx, attr.Value.ToString());
                                 }
+
                                 layer.CreateFeature(feat);
                             }
                         }
