@@ -39,10 +39,10 @@ namespace GisTools.CLI
 
             var zPoints = new List<GeoPoint>
             {
-                new GeoPoint(0, 10),
-                new GeoPoint(10, 10),
-                new GeoPoint(0, 0),
-                new GeoPoint(10, 0)
+                new GeoPoint(540000, 9420000),
+                new GeoPoint(540000, 9420100),
+                new GeoPoint(540100, 9420050),
+                new GeoPoint(540000, 9420150)
             };
 
             var lineFeature = new GisFeature(new GeoLine(zPoints));
@@ -51,7 +51,7 @@ namespace GisTools.CLI
 
             string file = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "my-lines.shp");
 
-            string result = ShapefileWriter.WriteLines(file, new List<GisFeature> { lineFeature });
+            string result = ShapefileWriter.WriteLines(file, new List<GisFeature> { lineFeature }, 32717);
 
             if (result == "Success")
                 Console.WriteLine($"[OK] File created on: {file}");
@@ -64,10 +64,10 @@ namespace GisTools.CLI
 
             var trianglePoints = new List<GeoPoint>
             {
-                new GeoPoint(0, 0),
-                new GeoPoint(10, 0),
-                new GeoPoint(5, 10),
-                new GeoPoint(0, 0)
+                new GeoPoint(540000, 9420000),
+                new GeoPoint(540000, 9420100),
+                new GeoPoint(540100, 9420050),
+                new GeoPoint(540000, 9420000)
             };
 
             var polyFeature = new GisFeature(new GeoPolygon(trianglePoints));
@@ -76,7 +76,7 @@ namespace GisTools.CLI
 
             string file = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "my-polygons.shp");
 
-            string result = ShapefileWriter.WritePolygons(file, new List<GisFeature> { polyFeature });
+            string result = ShapefileWriter.WritePolygons(file, new List<GisFeature> { polyFeature }, 32717);
 
             if (result == "Success")
                 Console.WriteLine($"[OK] File created on: {file}");

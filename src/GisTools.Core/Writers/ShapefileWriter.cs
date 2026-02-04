@@ -15,16 +15,16 @@ namespace GisTools.Core.Writers
 {
     public static class ShapefileWriter
     {
-        public static string WritePoints(string path, List<GisFeature> features, int epsgCode = 4326)
+        public static string WritePoints(string path, List<GisFeature> features, int? epsgCode = null)
             => WriteFeaturesCore(path, features, wkbGeometryType.wkbPoint, epsgCode);
 
-        public static string WriteLines(string path, List<GisFeature> features, int epsgCode = 4326)
+        public static string WriteLines(string path, List<GisFeature> features, int? epsgCode = null)
             => WriteFeaturesCore(path, features, wkbGeometryType.wkbLineString, epsgCode);
 
-        public static string WritePolygons(string path, List<GisFeature> features, int epsgCode = 4326)
+        public static string WritePolygons(string path, List<GisFeature> features, int? epsgCode = null)
             => WriteFeaturesCore(path, features, wkbGeometryType.wkbPolygon, epsgCode);
 
-        public static string WriteFeaturesCore(string outputPath, List<GisFeature> features, wkbGeometryType gdalType, int epsgCode)
+        public static string WriteFeaturesCore(string outputPath, List<GisFeature> features, wkbGeometryType gdalType, int? epsgCode)
         {
             try
             {
@@ -42,9 +42,14 @@ namespace GisTools.Core.Writers
                 {
                     if (ds == null) return "Error: Creation failed.";
 
-                    using (SpatialReference srs = new SpatialReference(null))
+                    SpatialReference srs = null;
+                    try
                     {
-                        srs.ImportFromEPSG(epsgCode);
+                        if (epsgCode.HasValue)
+                        {
+                            srs = new SpatialReference(null);
+                            srs.ImportFromEPSG(epsgCode.Value);
+                        }
 
                         using (Layer layer = ds.CreateLayer("Layer1", srs, gdalType, null))
                         {
@@ -61,24 +66,24 @@ namespace GisTools.Core.Writers
                                 }
                             }
 
-                            FeatureDefn layerDefn = layer.GetLayerDefn();
+                            FeatureDefn layerDefinition = layer.GetLayerDefn();
 
                             foreach (var item in features)
                             {
-                                using (Feature feat = new Feature(layerDefn))
+                                using (Feature feat = new Feature(layerDefinition))
                                 {
-                                    OSGeo.OGR.Geometry gdalGeom = GdalGeometryConverter.ToGdalGeometry(item.Geometry);
+                                    OSGeo.OGR.Geometry gdalGeometry = GdalGeometryConverter.ToGdalGeometry(item.Geometry);
 
-                                    if (gdalGeom != null)
+                                    if (gdalGeometry != null)
                                     {
-                                        feat.SetGeometry(gdalGeom);
-                                        gdalGeom.Dispose();
+                                        feat.SetGeometry(gdalGeometry);
+                                        gdalGeometry.Dispose();
                                     }
 
                                     foreach (var attr in item.Attributes)
                                     {
                                         string fieldName = attr.Key.Length > 10 ? attr.Key.Substring(0, 10) : attr.Key;
-                                        int idx = layerDefn.GetFieldIndex(fieldName);
+                                        int idx = layerDefinition.GetFieldIndex(fieldName);
                                         if (idx != -1 && attr.Value != null)
                                             feat.SetField(idx, attr.Value.ToString());
                                     }
@@ -87,6 +92,10 @@ namespace GisTools.Core.Writers
                                 }
                             }
                         }
+                    }
+                    finally
+                    {
+                        if (srs != null) srs.Dispose();
                     }
                 }
                 return "Success";
