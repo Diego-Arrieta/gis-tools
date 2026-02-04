@@ -60,9 +60,10 @@
     <Compile Include="Geometry\GeoPoint.cs" />
     <Compile Include="Geometry\GeoPolygon.cs" />
     <Compile Include="Geometry\IGeometry.cs" />
-    <Compile Include="Helpers\GdalGeometryConverter.cs" />
+    <Compile Include="Converters\GdalGeometryConverter.cs" />
     <Compile Include="Managers\GisEngine.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Readers\ShapefileReader.cs" />
     <Compile Include="Writers\ShapefileWriter.cs" />
   </ItemGroup>
   <ItemGroup>

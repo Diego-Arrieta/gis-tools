@@ -18,9 +18,14 @@ namespace GisTools.CLI
                 Console.ForegroundColor = ConsoleColor.Cyan;
                 Console.WriteLine("======= GIS TOOLS CLI =======");
                 Console.ResetColor();
-                Console.WriteLine("1. Test Points");
-                Console.WriteLine("2. Test Lines");
-                Console.WriteLine("3. Test Polygons");
+                Console.WriteLine("1. Write Points (UTM)");
+                Console.WriteLine("2. Write Lines (Z)");
+                Console.WriteLine("3. Write Polygons (Triangle)");
+                Console.WriteLine("-----------------------------");
+                Console.WriteLine("4. Read Points");
+                Console.WriteLine("5. Read Lines");
+                Console.WriteLine("6. Read Polygons");
+                Console.WriteLine("-----------------------------");
                 Console.WriteLine("0. Exit");
                 Console.Write("\nSelect option: ");
 
@@ -29,21 +34,16 @@ namespace GisTools.CLI
 
                 switch (key.KeyChar)
                 {
-                    case '1':
-                        Scenarios.TestPoints();
-                        break;
-                    case '2':
-                        Scenarios.TestLines();
-                        break;
-                    case '3':
-                        Scenarios.TestPolygons();
-                        break;
-                    case '0':
-                        keepRunning = false;
-                        continue;
-                    default:
-                        Console.WriteLine("Invalid option.");
-                        break;
+                    case '1': Scenarios.TestPointWriting(); break;
+                    case '2': Scenarios.TestLineWriting(); break;
+                    case '3': Scenarios.TestPolygonWriting(); break;
+
+                    case '4': Scenarios.TestPointReading(); break;
+                    case '5': Scenarios.TestLineReading(); break;
+                    case '6': Scenarios.TestPolygonReading(); break;
+
+                    case '0': keepRunning = false; continue;
+                    default: Console.WriteLine("Invalid option."); break;
                 }
 
                 Console.WriteLine("\nPress any key to return to menu...");
