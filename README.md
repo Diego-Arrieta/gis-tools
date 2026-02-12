@@ -1,6 +1,6 @@
 # GIS Tools
 
-A .NET interoperability library designed to bridge Autodesk platforms (Revit, Civil 3D, Dynamo) with open GIS formats using GDAL.
+A .NET interoperability library designed to bridge Autodesk platforms (Revit, Civil 3D, Dynamo) with open GIS formats using NetTopologySuite.
 
 ### Project Scope
 The goal of this project is to provide a unified C# core for geometry and attribute exchange between BIM software and GIS standards (Shapefile, GeoJSON).
