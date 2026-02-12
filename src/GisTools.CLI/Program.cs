@@ -42,6 +42,9 @@ namespace GisTools.CLI
                     case '5': Scenarios.TestLineReading(); break;
                     case '6': Scenarios.TestPolygonReading(); break;
 
+                    case '7': Scenarios.TestAttributeReading(); break;
+                    case '8': Scenarios.InspectAttributes(); break;
+
                     case '0': keepRunning = false; continue;
                     default: Console.WriteLine("Invalid option."); break;
                 }

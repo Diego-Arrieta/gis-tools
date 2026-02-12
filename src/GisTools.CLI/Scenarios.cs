@@ -6,38 +6,51 @@ using System.Text;
 using System.Threading.Tasks;
 using GisTools.Core.Entities;
 using GisTools.Core.Geometry;
+using GisTools.Core.IO;
 using GisTools.Core.Readers;
-using GisTools.Core.Writers;
 
 namespace GisTools.CLI
 {
     public static class Scenarios
     {
+        private static string GetDesktopPath(string fileName)
+        {
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), fileName);
+        }
+        private static Dictionary<string, object> CreateSampleAttributes(int id, string description)
+        {
+            return new Dictionary<string, object>
+            {
+                { "ID", id },
+                { "Description", description },
+                { "Date", DateTime.Now.ToShortDateString() }
+            };
+        }
         public static void TestPointWriting()
         {
             Console.WriteLine("\n--- TEST: Generate Point ---");
 
-            var features = new List<GisFeature>();
+            var point = new GeoPoint(540000, 9420000, 10);
+            var attributes = CreateSampleAttributes(1, "Test Point");
+            var feature = new Feature(point, attributes);
 
-            var p1 = new GisFeature(new GeoPoint(540000, 9420000));
-            p1.Attributes.Add("ID", "001");
-            p1.Attributes.Add("City", "Piura");
-            features.Add(p1);
+            string file = GetDesktopPath("my-points.shp");
 
-            string file = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "my-points.shp");
-
-            string result = ShapefileWriter.WritePoints(file, features, 32717);
-
-            if (result == "Success")
-                Console.WriteLine($"[OK] File created on: {file}");
-            else
-                Console.WriteLine($"[ERROR] {result}");
+            try
+            {
+                ShapefileWriter.Write(file, new List<Feature> { feature });
+                Console.WriteLine($"[OK] File created: {file}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] {ex.Message}");
+            }
         }
         public static void TestLineWriting()
         {
             Console.WriteLine("\n--- TEST: Generate Lines ---");
 
-            var zPoints = new List<GeoPoint>
+            var points = new List<GeoPoint>
             {
                 new GeoPoint(540000, 9420000),
                 new GeoPoint(540000, 9420100),
@@ -45,47 +58,53 @@ namespace GisTools.CLI
                 new GeoPoint(540000, 9420150)
             };
 
-            var lineFeature = new GisFeature(new GeoLine(zPoints));
-            lineFeature.Attributes.Add("Name", "Z Mark");
-            lineFeature.Attributes.Add("Type", "Path");
+            var line = new GeoLine(points);
+            var attributes = CreateSampleAttributes(10, "Test Line");
+            var feature = new Feature(line, attributes);
 
-            string file = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "my-lines.shp");
+            string file = GetDesktopPath("my-lines.shp");
 
-            string result = ShapefileWriter.WriteLines(file, new List<GisFeature> { lineFeature }, 32717);
-
-            if (result == "Success")
-                Console.WriteLine($"[OK] File created on: {file}");
-            else
-                Console.WriteLine($"[ERROR] {result}");
+            try
+            {
+                ShapefileWriter.Write(file, new List<Feature> { feature });
+                Console.WriteLine($"[OK] File created: {file}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] {ex.Message}");
+            }
         }
         public static void TestPolygonWriting()
         {
-            Console.WriteLine("\n--- TEST: Generate polygons ---");
+            Console.WriteLine("\n--- TEST: Generate Polygons ---");
 
             var trianglePoints = new List<GeoPoint>
             {
                 new GeoPoint(540000, 9420000),
                 new GeoPoint(540000, 9420100),
                 new GeoPoint(540100, 9420050),
-                new GeoPoint(540000, 9420000)
+                // Note: The Core will automatically close the ring if we omit the last point
             };
 
-            var polyFeature = new GisFeature(new GeoPolygon(trianglePoints));
-            polyFeature.Attributes.Add("Name", "Triangle");
-            polyFeature.Attributes.Add("Area", "Approx 50");
+            var polygon = new GeoPolygon(trianglePoints);
+            var attributes = CreateSampleAttributes(99, "Test Polygon");
+            var feature = new Feature(polygon, attributes);
 
-            string file = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "my-polygons.shp");
+            string file = GetDesktopPath("my-polygons.shp");
 
-            string result = ShapefileWriter.WritePolygons(file, new List<GisFeature> { polyFeature }, 32717);
-
-            if (result == "Success")
-                Console.WriteLine($"[OK] File created on: {file}");
-            else
-                Console.WriteLine($"[ERROR] {result}");
+            try
+            {
+                ShapefileWriter.Write(file, new List<Feature> { feature });
+                Console.WriteLine($"[OK] File created: {file}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] {ex.Message}");
+            }
         }
         public static void TestPointReading()
         {
-            Console.WriteLine("\n--- TEST: Reading Shapefile ---");
+            Console.WriteLine("\n--- TEST: Reading Shapefile (Features) ---");
 
             string file = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "my-points.shp");
 
@@ -95,71 +114,162 @@ namespace GisTools.CLI
                 return;
             }
 
-            var features = ShapefileReader.ReadAll(file);
+            var features = ShapefileReader.Read(file);
 
-            Console.WriteLine($"Files Read: {features.Count}");
+            Console.WriteLine($"Features Read: {features.Count}");
 
-            foreach (var f in features)
+            foreach (var feature in features)
             {
-                Console.WriteLine($"Type: {f.Geometry.GeometryType} | Attrs: {f.Attributes.Count}");
-                if (f.Attributes.ContainsKey("ID"))
+                var geom = feature.Geometry;
+
+                if (geom is GeoPoint p)
                 {
-                    Console.WriteLine($" - ID: {f.Attributes["ID"]}");
+                    Console.WriteLine($" [POINT] ({p.X}, {p.Y}, {p.Z})");
+                }
+
+                if (feature.Attributes.Count > 0)
+                {
+                    Console.Write("   [DATA]: ");
+                    foreach (var attr in feature.Attributes)
+                    {
+                        Console.Write($"{attr.Key}={attr.Value} | ");
+                    }
+                    Console.WriteLine(); // Salto de línea
                 }
             }
         }
         public static void TestLineReading()
         {
-            Console.WriteLine("\n--- TEST: Reading Lines (Z Shape) ---");
+            Console.WriteLine("\n--- TEST: Reading Lines ---");
             string file = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "my-lines.shp");
 
-            if (!File.Exists(file))
-            {
-                Console.WriteLine("File not found. Run Test 2 first.");
-                return;
-            }
+            if (!File.Exists(file)) return;
 
-            var features = ShapefileReader.ReadAll(file);
-            Console.WriteLine($"Features found: {features.Count}");
+            var features = ShapefileReader.Read(file);
 
-            foreach (var f in features)
+            foreach (var feature in features)
             {
-                if (f.Geometry is GeoLine l)
+                if (feature.Geometry is GeoLine l)
                 {
-                    Console.WriteLine($"[LINE] Vertices count: {l.Points.Count}");
-                    // Print first and last point to verify
-                    if (l.Points.Count > 0)
-                    {
-                        var start = l.Points[0];
-                        var end = l.Points[l.Points.Count - 1];
-                        Console.WriteLine($"  Start: ({start.X},{start.Y}) -> End: ({end.X},{end.Y})");
-                    }
+                    Console.WriteLine($" [LINE] Vertices count: {l.Points.Count}");
                 }
             }
         }
-
         public static void TestPolygonReading()
         {
-            Console.WriteLine("\n--- TEST: Reading Polygons (Triangle) ---");
+            Console.WriteLine("\n--- TEST: Reading Polygons ---");
             string file = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "my-polygons.shp");
+
+            if (!File.Exists(file)) return;
+
+            var features = ShapefileReader.Read(file);
+
+            foreach (var feature in features)
+            {
+                if (feature.Geometry is GeoPolygon poly)
+                {
+                    Console.WriteLine($" [POLYGON] Exterior ring vertices: {poly.ExteriorRing.Count}");
+                }
+            }
+        }
+        public static void TestAttributeReading()
+        {
+            string file = GetDesktopPath("my-points.shp");
+
+            Console.WriteLine($"\n--- TEST: Inspecting Attributes from {Path.GetFileName(file)} ---");
 
             if (!File.Exists(file))
             {
-                Console.WriteLine("File not found. Run Test 3 first.");
+                Console.WriteLine($"[ERROR] File not found: {file}");
                 return;
             }
 
-            var features = ShapefileReader.ReadAll(file);
-            Console.WriteLine($"Features found: {features.Count}");
-
-            foreach (var f in features)
+            try
             {
-                if (f.Geometry is GeoPolygon poly)
+                var features = GisTools.Core.Readers.ShapefileReader.Read(file);
+
+                if (features.Count == 0)
                 {
-                    Console.WriteLine($"[POLYGON] Exterior ring vertices: {poly.ExteriorRing.Count}");
-                    foreach (var attr in f.Attributes)
-                        Console.WriteLine($"  - {attr.Key}: {attr.Value}");
+                    Console.WriteLine("[WARN] The shapefile is empty.");
+                    return;
                 }
+
+                var firstFeature = features[0];
+                var columnNames = firstFeature.Attributes.Keys.ToList();
+
+                Console.WriteLine($"[INFO] Total Features: {features.Count}");
+                Console.WriteLine($"[INFO] Columns Detected ({columnNames.Count}):");
+
+                foreach (var col in columnNames)
+                {
+                    Console.WriteLine($"   - {col}");
+                }
+
+                bool hasWkt = columnNames.Any(c => c.ToUpper() == "WKT" || c.ToUpper() == "THE_GEOM");
+
+                Console.WriteLine("\n----------------RESULT----------------");
+                if (hasWkt)
+                {
+                    Console.WriteLine("[FAIL] ❌ The 'WKT' column is still present.");
+                }
+                else
+                {
+                    Console.WriteLine("[SUCCESS] ✅ Clean schema! No geometry columns found in attributes.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] {ex.Message}");
+            }
+        }
+        public static void InspectAttributes()
+        {
+            string file = GetDesktopPath("my-points2.shp");
+
+            Console.WriteLine($"\n--- 🔍 INSPECCIÓN DE DATOS: {Path.GetFileName(file)} ---");
+
+            if (!File.Exists(file))
+            {
+                Console.WriteLine($"[ERROR] Archivo no encontrado: {file}");
+                return;
+            }
+
+            try
+            {
+                var features = GisTools.Core.Readers.ShapefileReader.Read(file);
+
+                if (features.Count == 0)
+                {
+                    Console.WriteLine("[WARN] El Shapefile está vacío.");
+                    return;
+                }
+
+                var headers = features[0].Attributes.Keys.ToList();
+
+                Console.WriteLine($"[INFO] Registros Totales: {features.Count}");
+                Console.WriteLine($"[INFO] Columnas Encontradas: {string.Join(" | ", headers)}");
+                Console.WriteLine(new string('-', 50));
+
+                int count = 0;
+                foreach (var feature in features)
+                {
+                    if (count >= 5) break;
+
+                    var values = new List<string>();
+                    foreach (var header in headers)
+                    {
+                        object val = feature.Attributes.ContainsKey(header) ? feature.Attributes[header] : "null";
+                        values.Add(val?.ToString() ?? "null");
+                    }
+
+                    Console.WriteLine($"Fila {count + 1}: {string.Join(" | ", values)}");
+                    count++;
+                }
+                Console.WriteLine(new string('-', 50));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] Falló la lectura: {ex.Message}");
             }
         }
     }

@@ -12,8 +12,9 @@ namespace GisTools.Core.Geometry
         public double Y { get; }
         public double Z { get; }
         public string GeometryType => "Point";
+        public bool HasZ => !double.IsNaN(Z);
 
-        public GeoPoint(double x, double y, double z = 0)
+        public GeoPoint(double x, double y, double z = double.NaN)
         {
             X = x;
             Y = y;

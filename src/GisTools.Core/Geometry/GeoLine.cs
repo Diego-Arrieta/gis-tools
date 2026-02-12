@@ -8,12 +8,17 @@ namespace GisTools.Core.Geometry
 {
     public class GeoLine : IGeometry
     {
-        public List<GeoPoint> Points { get; set; }
+        public IReadOnlyList<GeoPoint> Points { get; set; }
         public string GeometryType => "LineString";
 
-        public GeoLine(List<GeoPoint> points)
+        public GeoLine(IEnumerable<GeoPoint> points)
         {
-            Points = points ?? new List<GeoPoint>();
+            var pointList = points?.ToList() ?? new List<GeoPoint>();
+
+            if (pointList.Count < 2) 
+                throw new ArgumentException("LineString must have at least 2 points.");
+
+            Points = pointList;
         }
     }
 }

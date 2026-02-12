@@ -1,66 +1,66 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using NetTopologySuite.IO;
 using GisTools.Core.Entities;
-using GisTools.Core.Helpers;
+using GisTools.Core.Geometry;
+using GisTools.Core.Converters;
 using GisTools.Core.Managers;
-using OSGeo.OGR;
 
 namespace GisTools.Core.Readers
 {
     public static class ShapefileReader
     {
-        public static List<GisFeature> ReadAll(string path)
+        public static List<Feature> Read(string shpPath)
         {
-            var results = new List<GisFeature>();
+            var features = new List<Feature>();
 
-            try
+            ValidateFileExists(shpPath);
+
+            using (var reader = new ShapefileDataReader(shpPath, GisEngine.Factory))
             {
-                GisEngine.Initialize();
+                var header = reader.DbaseHeader;
 
-                using (DataSource ds = Ogr.Open(path, 0))
+                while (reader.Read())
                 {
-                    if (ds == null) return results;
+                    var ntsGeometry = reader.Geometry;
+                    if (ntsGeometry == null) continue;
 
-                    using (Layer layer = ds.GetLayerByIndex(0))
+                    var attributes = new Dictionary<string, object>();
+
+                    for (int i = 0; i < header.NumFields; i++)
                     {
-                        if (layer == null) return results;
+                        string fieldName = header.Fields[i].Name;
+                        object value = reader.GetValue(i+1); // WTF
+                        attributes[fieldName] = value;
+                    }
 
-                        layer.ResetReading();
+                    for (int i = 0; i < ntsGeometry.NumGeometries; i++)
+                    {
+                        var subGeometry = ntsGeometry.GetGeometryN(i);
+                        var internalGeometry = NtsGeometryConverter.ToInternalGeometry(subGeometry);
 
-                        Feature feat;
-                        while ((feat = layer.GetNextFeature()) != null)
+                        if (internalGeometry != null)
                         {
-                            var gdalGeom = feat.GetGeometryRef();
-                            var internalGeom = GdalGeometryConverter.ToInternalGeometry(gdalGeom);
-
-                            if (internalGeom != null)
-                            {
-                                var newFeature = new GisFeature(internalGeom);
-
-                                int fieldCount = feat.GetFieldCount();
-                                for (int i = 0; i < fieldCount; i++)
-                                {
-                                    string key = feat.GetFieldDefnRef(i).GetName();
-                                    string value = feat.GetFieldAsString(i);
-                                    newFeature.Attributes.Add(key, value);
-                                }
-
-                                results.Add(newFeature);
-                            }
-                            feat.Dispose();
+                            var attrsCopy = new Dictionary<string, object>(attributes);
+                            features.Add(new Feature(internalGeometry, attrsCopy));
                         }
                     }
                 }
             }
-            catch (Exception)
-            {
-                // Handle logging if needed
-            }
 
-            return results;
+            return features;
+        }
+        private static void ValidateFileExists(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+                throw new ArgumentNullException(nameof(path));
+
+            if (!File.Exists(path))
+                throw new FileNotFoundException($"Shapefile not found at: {path}");
         }
     }
 }

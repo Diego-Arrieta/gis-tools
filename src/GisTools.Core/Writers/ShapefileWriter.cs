@@ -2,108 +2,91 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using GisTools.Core.Converters;
 using GisTools.Core.Entities;
-using GisTools.Core.Geometry;
-using GisTools.Core.Helpers;
 using GisTools.Core.Managers;
-using OSGeo.OGR;
-using OSGeo.OSR;
+using NetTopologySuite.Features;
+using NetTopologySuite.IO;
 
-namespace GisTools.Core.Writers
+namespace GisTools.Core.IO
 {
     public static class ShapefileWriter
     {
-        public static string WritePoints(string path, List<GisFeature> features, int? epsgCode = null)
-            => WriteFeaturesCore(path, features, wkbGeometryType.wkbPoint, epsgCode);
-
-        public static string WriteLines(string path, List<GisFeature> features, int? epsgCode = null)
-            => WriteFeaturesCore(path, features, wkbGeometryType.wkbLineString, epsgCode);
-
-        public static string WritePolygons(string path, List<GisFeature> features, int? epsgCode = null)
-            => WriteFeaturesCore(path, features, wkbGeometryType.wkbPolygon, epsgCode);
-
-        public static string WriteFeaturesCore(string outputPath, List<GisFeature> features, wkbGeometryType gdalType, int? epsgCode)
+        public static void Write(string filePath, List<Entities.Feature> features)
         {
-            try
+            if (features == null || !features.Any()) return;
+
+            EnsureDirectoryExists(filePath);
+
+            var ntsFeatures = ConvertToNtsFeatures(features);
+
+            if (!ntsFeatures.Any()) return;
+
+            ValidateGeometryConsistency(ntsFeatures);
+
+            WriteFile(filePath, ntsFeatures);
+        }
+
+        private static void EnsureDirectoryExists(string filePath)
+        {
+            var directory = Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
             {
-                GisEngine.Initialize();
-
-                Driver driver = Ogr.GetDriverByName("ESRI Shapefile");
-                if (driver == null) return "Error: Driver not found.";
-
-                if (File.Exists(outputPath))
-                {
-                    try { driver.DeleteDataSource(outputPath); } catch { }
-                }
-
-                using (DataSource ds = driver.CreateDataSource(outputPath, null))
-                {
-                    if (ds == null) return "Error: Creation failed.";
-
-                    SpatialReference srs = null;
-                    try
-                    {
-                        if (epsgCode.HasValue)
-                        {
-                            srs = new SpatialReference(null);
-                            srs.ImportFromEPSG(epsgCode.Value);
-                        }
-
-                        using (Layer layer = ds.CreateLayer("Layer1", srs, gdalType, null))
-                        {
-                            if (features.Count > 0)
-                            {
-                                foreach (var key in features[0].Attributes.Keys)
-                                {
-                                    string fieldName = key.Length > 10 ? key.Substring(0, 10) : key;
-                                    using (FieldDefn field = new FieldDefn(fieldName, FieldType.OFTString))
-                                    {
-                                        field.SetWidth(254);
-                                        layer.CreateField(field, 1);
-                                    }
-                                }
-                            }
-
-                            FeatureDefn layerDefinition = layer.GetLayerDefn();
-
-                            foreach (var item in features)
-                            {
-                                using (Feature feat = new Feature(layerDefinition))
-                                {
-                                    OSGeo.OGR.Geometry gdalGeometry = GdalGeometryConverter.ToGdalGeometry(item.Geometry);
-
-                                    if (gdalGeometry != null)
-                                    {
-                                        feat.SetGeometry(gdalGeometry);
-                                        gdalGeometry.Dispose();
-                                    }
-
-                                    foreach (var attr in item.Attributes)
-                                    {
-                                        string fieldName = attr.Key.Length > 10 ? attr.Key.Substring(0, 10) : attr.Key;
-                                        int idx = layerDefinition.GetFieldIndex(fieldName);
-                                        if (idx != -1 && attr.Value != null)
-                                            feat.SetField(idx, attr.Value.ToString());
-                                    }
-
-                                    layer.CreateFeature(feat);
-                                }
-                            }
-                        }
-                    }
-                    finally
-                    {
-                        if (srs != null) srs.Dispose();
-                    }
-                }
-                return "Success";
+                Directory.CreateDirectory(directory);
             }
-            catch (Exception ex)
+        }
+
+        private static List<NetTopologySuite.Features.Feature> ConvertToNtsFeatures(List<Entities.Feature> gisFeatures)
+        {
+            var result = new List<NetTopologySuite.Features.Feature>();
+
+            foreach (var item in gisFeatures)
             {
-                return $"Exception: {ex.Message}";
+                var geometry = NtsGeometryConverter.ToNtsGeometry(item.Geometry);
+                if (geometry == null) continue;
+
+                var attributes = CreateAttributesTable(item.Attributes);
+                result.Add(new NetTopologySuite.Features.Feature(geometry, attributes));
             }
+
+            return result;
+        }
+
+        private static AttributesTable CreateAttributesTable(Dictionary<string, object> sourceData)
+        {
+            var table = new AttributesTable();
+
+            foreach (var pair in sourceData)
+            {
+                table.Add(pair.Key, pair.Value);
+            }
+
+            if (table.Count == 0)
+            {
+                table.Add("ID", 0);
+            }
+
+            return table;
+        }
+
+        private static void ValidateGeometryConsistency(List<NetTopologySuite.Features.Feature> features)
+        {
+            string expectedType = features.First().Geometry.GeometryType;
+
+            if (features.Any(f => f.Geometry.GeometryType != expectedType))
+            {
+                throw new InvalidOperationException($"Shapefiles do not support mixed geometry types. Expected: {expectedType}");
+            }
+        }
+
+        private static void WriteFile(string filePath, List<NetTopologySuite.Features.Feature> features)
+        {
+            var writer = new ShapefileDataWriter(filePath, GisEngine.Factory)
+            {
+                Header = ShapefileDataWriter.GetHeader(features.First(), features.Count)
+            };
+
+            writer.Write(features);
         }
     }
 }
